@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trackify - Smart Study Planner</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="{% static 'planner/css/styles.css' %}" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+    <nav class="bg-white shadow fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex space-x-6 items-center">
+                <a href="{% url 'dashboard' %}" class="text-2xl font-extrabold text-blue-600 hover:text-blue-800 tracking-tight">Trackify</a>
+                <a href="{% url 'eisenhower-matrix' %}" class="text-gray-700 hover:text-blue-600">Matrix</a>
+                <a href="{% url 'pomodoro' %}" class="text-gray-700 hover:text-blue-600">Pomodoro</a>
+                <a href="{% url 'timer-stats' %}" class="text-gray-700 hover:text-blue-600">Timer Stats</a>
+                <a href="{% url 'analytics' %}" class="text-gray-700 hover:text-blue-600">Analytics</a>
+                <a href="{% url 'task-timeline' %}" class="text-gray-700 hover:text-blue-600">Timeline</a>
+                <a href="{% url 'smart-schedule' %}" class="text-gray-700 hover:text-blue-600">Smart Schedule</a>
+                <a href="{% url 'user-settings' %}" class="text-gray-700 hover:text-blue-600">Settings</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                {% if user.is_authenticated %}
+                    <span class="text-sm font-medium text-gray-700">Hi, {{ user.username }}</span>
+                    <form action="{% url 'logout' %}" method="post" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">Logout</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'login' %}" class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md">Login</a>
+                    <a href="{% url 'register' %}" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-24">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipElements = document.querySelectorAll('[data-tooltip]');
+        tooltipElements.forEach(el => {
+            el.addEventListener('mouseover', function() {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'absolute z-10 bg-gray-800 text-white text-xs rounded py-1 px-2';
+                tooltip.textContent = this.dataset.tooltip;
+                this.appendChild(tooltip);
+                
+                const rect = this.getBoundingClientRect();
+                tooltip.style.top = `${rect.height + 5}px`;
+                tooltip.style.left = '50%';
+                tooltip.style.transform = 'translateX(-50%)';
+                
+                this.addEventListener('mouseout', function() {
+                    tooltip.remove();
+                });
+            });
+        });
+        
+        // Flash message auto-dismiss
+        const flashMessages = document.querySelectorAll('.alert');
+        flashMessages.forEach(msg => {
+            setTimeout(() => {
+                msg.style.transition = 'opacity 0.5s ease-out';
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 500);
+            }, 5000);
+        });
+
+        // Toggle dark mode based on user settings
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        if (darkModeToggle) {
+            darkModeToggle.addEventListener('change', function() {
+                document.documentElement.classList.toggle('dark', this.checked);
+            });
+        }
+
+        // Form handling enhancements
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const submitButton = this.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<span class="animate-spin">⏳</span> Processing...';
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>

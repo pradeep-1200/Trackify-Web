@@ -1,0 +1,232 @@
+{% extends "planner/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6">Study Analytics</h1>
+
+    <!-- Hidden data container -->
+    <div id="analytics-data" 
+         data-daily='{{ daily_study|escapejs }}' 
+         data-category='{{ category_data|escapejs }}' 
+         data-productivity='{{ productivity_stats|escapejs }}'>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Daily Study Time Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Daily Focus Time (Last 30 Days)</h2>
+            <div class="h-80">
+                <canvas id="dailyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Category Distribution Chart -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Time by Category</h2>
+            <div class="h-80">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productivity Chart -->
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Productivity Trends</h2>
+        <div class="h-80">
+            <canvas id="productivityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Session Log -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">Recent Sessions</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Task</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Productivity</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for session in recent_sessions %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ session.task.title|default:"General" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ session.duration }} min</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ session.get_productivity_score_display }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ session.start_time|date:"M j, Y" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if session.task.completed %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Completed</span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">In Progress</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">No sessions recorded yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataContainer = document.getElementById('analytics-data');
+    if (!dataContainer) return;
+
+    // Parse the data safely from the data attributes
+    function parseData(dataAttr) {
+        try {
+            return JSON.parse(dataAttr);
+        } catch (e) {
+            console.error('Error parsing data:', e);
+            return [];
+        }
+    }
+
+    const dailyData = parseData(dataContainer.dataset.daily);
+    const categoryData = parseData(dataContainer.dataset.category);
+    const productivityData = parseData(dataContainer.dataset.productivity);
+
+    // Daily Study Time Chart
+    const dailyCtx = document.getElementById('dailyChart');
+    if (dailyCtx) {
+        new Chart(dailyCtx, {
+            type: 'line',
+            data: {
+                labels: dailyData.map(item => item.day ? new Date(item.day).toLocaleDateString() : ''),
+                datasets: [{
+                    label: 'Minutes Studied',
+                    data: dailyData.map(item => item.total_duration || 0),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Minutes'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Category Distribution Chart
+    const categoryCtx = document.getElementById('categoryChart');
+    if (categoryCtx && categoryData && categoryData.length > 0) {
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: categoryData.map(item => item.task__category || 'Uncategorized'),
+                datasets: [{
+                    data: categoryData.map(item => item.total_duration || 0),
+                    backgroundColor: [
+                        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.raw} minutes`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Productivity Chart
+    const productivityCtx = document.getElementById('productivityChart');
+    if (productivityCtx && productivityData && productivityData.length > 0) {
+        const labels = ['Very Low', 'Low', 'Medium', 'High', 'Very High'];
+        
+        new Chart(productivityCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Number of Sessions',
+                    data: productivityData.map(item => item.count || 0),
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Avg Duration (min)',
+                    data: productivityData.map(item => item.avg_duration || 0),
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 1,
+                    type: 'line',
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Sessions'
+                        }
+                    },
+                    y1: {
+                        position: 'right',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Avg Duration (min)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Productivity Score'
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

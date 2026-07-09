@@ -1,0 +1,134 @@
+{% extends "planner/base.html" %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Timer Statistics</h1>
+    
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-3 text-blue-600">Today</h2>
+            <div class="space-y-2">
+                <p class="text-gray-700"><span class="font-medium">Focus Time:</span> {{ daily_stats.total_time|default:0|divide:60|floatformat }} min</p>
+                <p class="text-gray-700"><span class="font-medium">Sessions:</span> {{ daily_stats.sessions|default:0 }}</p>
+                <p class="text-gray-700"><span class="font-medium">Avg Session:</span> {{ daily_stats.avg_session|default:0|divide:60|floatformat:1 }} min</p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-3 text-green-600">This Week</h2>
+            <div class="space-y-2">
+                <p class="text-gray-700"><span class="font-medium">Focus Time:</span> {{ weekly_stats.total_time|default:0|divide:60|floatformat }} min</p>
+                <p class="text-gray-700"><span class="font-medium">Sessions:</span> {{ weekly_stats.sessions|default:0 }}</p>
+                <p class="text-gray-700"><span class="font-medium">Avg Session:</span> {{ weekly_stats.avg_session|default:0|divide:60|floatformat:1 }} min</p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-3 text-purple-600">This Month</h2>
+            <div class="space-y-2">
+                <p class="text-gray-700"><span class="font-medium">Focus Time:</span> {{ monthly_stats.total_time|default:0|divide:60|floatformat }} min</p>
+                <p class="text-gray-700"><span class="font-medium">Sessions:</span> {{ monthly_stats.sessions|default:0 }}</p>
+                <p class="text-gray-700"><span class="font-medium">Avg Session:</span> {{ monthly_stats.avg_session|default:0|divide:60|floatformat:1 }} min</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Session Distribution -->
+    <div class="bg-white p-6 rounded-lg shadow mb-8">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Session Distribution</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="font-medium text-gray-800">Work Sessions</h3>
+                <p class="text-gray-600">{{ session_distribution.work_count }}</p>
+                <p class="text-sm text-gray-500">{{ session_distribution.work_percentage|floatformat:1 }}% of total</p>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="font-medium text-gray-800">Short Breaks</h3>
+                <p class="text-gray-600">{{ session_distribution.short_break_count }}</p>
+                <p class="text-sm text-gray-500">{{ session_distribution.short_break_percentage|floatformat:1 }}% of total</p>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="font-medium text-gray-800">Long Breaks</h3>
+                <p class="text-gray-600">{{ session_distribution.long_break_count }}</p>
+                <p class="text-sm text-gray-500">{{ session_distribution.long_break_percentage|floatformat:1 }}% of total</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Task Completion Status -->
+    <div class="bg-white p-6 rounded-lg shadow mb-8">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Task Completion Status</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Spent</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for task in tasks %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ task.title }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if task.completed %}bg-green-100 text-green-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                {{ task.completed|yesno:"Completed,In Progress" }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ task.total_time|default:0|divide:60|floatformat }} min</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ task.due_date|date:"M j, Y"|default:"No due date" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">No tasks found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Recent Sessions -->
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold mb-4 text-gray-800">Recent Sessions</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for session in recent_sessions %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ session.task.title|default:"General" }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if session.session_type == 'work' %}bg-blue-100 text-blue-800
+                                {% else %}bg-green-100 text-green-800{% endif %}">
+                                {{ session.session_type|title }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ session.duration|divide:60|floatformat }} min</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800">{{ session.created_at|date:"M j, H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="px-6 py-4 text-center text-gray-500">No sessions recorded yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

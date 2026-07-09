@@ -1,0 +1,498 @@
+{% extends "planner/base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-6">
+    <h1 class="text-2xl font-bold mb-6">Pomodoro Timer</h1>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <!-- Timer Display -->
+        <div id="timer-display" class="text-5xl font-mono text-center mb-6"
+             data-work-duration="{{ settings.work_duration }}"
+             data-short-break-duration="{{ settings.short_break_duration }}"
+             data-long-break-duration="{{ settings.long_break_duration }}"
+             data-long-break-interval="{{ settings.long_break_interval }}"
+             data-sounds-enabled="{{ settings.enable_sounds|yesno:'True,False' }}">
+            25:00
+        </div>
+
+        <!-- Timer Controls -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button id="start-btn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Start</button>
+            <button id="pause-btn" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Pause</button>
+            <button id="reset-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Reset</button>
+        </div>
+
+        <!-- Session Info -->
+        <div class="flex justify-center mb-6">
+            <div class="text-center">
+                <div class="mb-2">
+                    <span class="font-semibold">Current Session: </span>
+                    <span id="session-type" class="capitalize">work</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Sessions Completed: </span>
+                    <span id="session-counter">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Selection -->
+        <div class="mb-4">
+            <label for="task-select" class="block text-sm font-medium text-gray-700 mb-1">Select Task (optional)</label>
+            <select id="task-select" class="w-full p-2 border rounded">
+                <option value="">-- No task selected --</option>
+                {% if active_task %}
+                <option value="{{ active_task.id }}" selected>{{ active_task.title }}</option>
+                {% endif %}
+                {% for task in tasks %}
+                {% if not active_task or task.id != active_task.id %}
+                <option value="{{ task.id }}">{{ task.title }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+            {% if active_task %}
+            <input type="hidden" id="active-task-id" value="{{ active_task.id }}">
+            {% endif %}
+        </div>
+
+        <!-- CSRF Token -->
+        {% csrf_token %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const timerDisplay = document.getElementById('timer-display');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const sessionTypeDisplay = document.getElementById('session-type');
+    const sessionCounter = document.getElementById('session-counter');
+
+    // Debug logging
+    console.log('Pomodoro timer initialized');
+    console.log('Timer display element:', timerDisplay);
+    console.log('Start button:', startBtn);
+    console.log('Pause button:', pauseBtn);
+    console.log('Reset button:', resetBtn);
+    console.log('Session type display:', sessionTypeDisplay);
+    console.log('Session counter:', sessionCounter);
+
+    if (!timerDisplay || !startBtn) {
+        console.error('Required elements not found');
+        return;
+    }
+
+    let animationFrameId = null;
+    let timeLeft = 0;
+    let isRunning = false;
+    let isWorkSession = true;
+    let sessionsCompleted = 0;
+    let sessionType = 'work';
+    let lastTimestamp = 0;
+    let pausedTime = 0;
+    let startTime = 0;
+    let elapsedTime = 0;
+
+    // Create a Web Worker for background timer
+    let timerWorker = null;
+
+    try {
+        // Create the worker
+        timerWorker = new Worker('/static/planner/js/timer-worker.js');
+        console.log('Timer worker created successfully');
+
+        // Set up message handler for the worker
+        timerWorker.onmessage = function(e) {
+            const data = e.data;
+            console.log('Message from worker:', data);
+
+            switch (data.type) {
+                case 'tick':
+                    // Update the timer display
+                    timeLeft = data.timeLeft;
+                    updateDisplay();
+                    break;
+
+                case 'complete':
+                    // Timer has completed
+                    console.log('Timer completed (worker notification)');
+                    isRunning = false;
+                    handleSessionEnd();
+                    break;
+
+                case 'started':
+                    console.log('Timer started with duration:', data.duration);
+                    break;
+
+                case 'paused':
+                    console.log('Timer paused with time left:', data.timeLeft);
+                    timeLeft = data.timeLeft;
+                    updateDisplay();
+                    break;
+
+                case 'reset':
+                    console.log('Timer reset');
+                    break;
+
+                case 'status':
+                    console.log('Timer status:', data);
+                    if (data.isRunning !== isRunning) {
+                        isRunning = data.isRunning;
+                    }
+                    timeLeft = data.timeLeft;
+                    updateDisplay();
+                    break;
+            }
+        };
+
+        // Handle worker errors
+        timerWorker.onerror = function(error) {
+            console.error('Worker error:', error);
+        };
+    } catch (error) {
+        console.error('Failed to create timer worker:', error);
+        timerWorker = null;
+    }
+
+    // Get timer settings from data attributes
+    console.log('Timer settings from data attributes:');
+    console.log('- Work duration:', timerDisplay.dataset.workDuration);
+    console.log('- Short break duration:', timerDisplay.dataset.shortBreakDuration);
+    console.log('- Long break duration:', timerDisplay.dataset.longBreakDuration);
+    console.log('- Long break interval:', timerDisplay.dataset.longBreakInterval);
+
+    const workDuration = parseInt(timerDisplay.dataset.workDuration || 25) * 60;
+    const shortBreakDuration = parseInt(timerDisplay.dataset.shortBreakDuration || 5) * 60;
+    const longBreakDuration = parseInt(timerDisplay.dataset.longBreakDuration || 15) * 60;
+    const longBreakInterval = parseInt(timerDisplay.dataset.longBreakInterval || 4);
+
+    console.log('Calculated durations (in seconds):');
+    console.log('- Work duration:', workDuration);
+    console.log('- Short break duration:', shortBreakDuration);
+    console.log('- Long break duration:', longBreakDuration);
+    console.log('- Long break interval:', longBreakInterval);
+
+    // Initialize timeLeft with workDuration
+    timeLeft = workDuration;
+
+    function updateDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        // Update progress circle if exists
+        const progressCircle = document.getElementById('progress-circle');
+        if (progressCircle) {
+            const totalDuration = isWorkSession ? workDuration :
+                                (sessionsCompleted % longBreakInterval === 0 ? longBreakDuration : shortBreakDuration);
+            const circumference = 2 * Math.PI * 40;
+            const offset = circumference - (timeLeft / totalDuration) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        // Update document title to show timer
+        document.title = `(${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}) Pomodoro Timer`;
+    }
+
+    function startTimer(duration) {
+        console.log('startTimer called with duration:', duration);
+        console.log('Current state - isRunning:', isRunning, 'pausedTime:', pausedTime);
+
+        if (isRunning) {
+            console.log('Timer already running, ignoring start request');
+            return;
+        }
+
+        // If we're resuming from pause, don't reset timeLeft
+        if (pausedTime === 0 && duration !== undefined) {
+            console.log('Starting new timer with duration:', duration);
+            timeLeft = duration;
+        } else if (pausedTime > 0) {
+            console.log('Resuming from pause, timeLeft:', timeLeft);
+            pausedTime = 0;
+        } else {
+            console.log('No duration provided and not paused, using default workDuration');
+            timeLeft = workDuration;
+        }
+
+        isRunning = true;
+        updateDisplay();
+
+        // Record the start time
+        startTime = performance.now();
+        lastTimestamp = Date.now();
+        console.log('Timer started at:', new Date(lastTimestamp).toISOString());
+
+        // Use the Web Worker if available
+        if (timerWorker) {
+            console.log('Starting timer with worker');
+            timerWorker.postMessage({
+                command: 'start',
+                duration: timeLeft
+            });
+            return;
+        }
+
+        // Fallback to animation frame if worker is not available
+        console.log('Starting timer with animation frame (fallback)');
+
+        // Cancel any existing animation frame
+        if (animationFrameId) {
+            console.log('Canceling existing animation frame');
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+
+        // Start the animation frame loop
+        function timerLoop(timestamp) {
+            if (!isRunning) {
+                console.log('Timer stopped, exiting loop');
+                return;
+            }
+
+            // Calculate elapsed time since last frame
+            const now = Date.now();
+            const elapsed = Math.floor((now - lastTimestamp) / 1000);
+
+            if (elapsed >= 1) {
+                console.log('Elapsed time:', elapsed, 'seconds');
+                lastTimestamp = now;
+                timeLeft = Math.max(0, timeLeft - elapsed);
+                updateDisplay();
+
+                if (timeLeft <= 0) {
+                    console.log('Timer completed');
+                    isRunning = false;
+                    animationFrameId = null;
+                    handleSessionEnd();
+                    return;
+                }
+            }
+
+            // Continue the loop
+            animationFrameId = requestAnimationFrame(timerLoop);
+        }
+
+        // Start the timer loop
+        animationFrameId = requestAnimationFrame(timerLoop);
+        console.log('Animation frame started with ID:', animationFrameId);
+    }
+
+    function handleSessionEnd() {
+        // Play sound if enabled
+        const soundEnabled = timerDisplay.dataset.soundsEnabled === 'True';
+        if (soundEnabled) {
+            const audio = new Audio('/static/planner/sounds/alert.mp3');
+            audio.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        // Save the completed session to MongoDB
+        const completedSessionType = isWorkSession ? 'WORK' :
+            (sessionsCompleted % longBreakInterval === 0 ? 'LONG_BREAK' : 'SHORT_BREAK');
+        const completedDuration = isWorkSession ? workDuration :
+            (sessionsCompleted % longBreakInterval === 0 ? longBreakDuration : shortBreakDuration);
+
+        // Get active task ID if available
+        const activeTaskId = document.getElementById('active-task-id')?.value;
+
+        // Save session to MongoDB
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch('/tasks/create-timer-session/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                session_type: completedSessionType,
+                duration: completedDuration,
+                task_id: activeTaskId || null
+            })
+        }).catch(error => {
+            console.error('Error saving timer session:', error);
+        });
+
+        if (isWorkSession) {
+            sessionsCompleted++;
+            sessionCounter.textContent = sessionsCompleted;
+
+            // Show notification
+            if (Notification.permission === 'granted') {
+                new Notification('Work session completed!', {
+                    body: 'Time for a break.',
+                    icon: '/static/planner/images/icon.png'
+                });
+            }
+
+            // Start break session
+            isWorkSession = false;
+            sessionType = sessionsCompleted % longBreakInterval === 0 ? 'long break' : 'short break';
+            sessionTypeDisplay.textContent = sessionType;
+            startTimer(sessionsCompleted % longBreakInterval === 0 ? longBreakDuration : shortBreakDuration);
+        } else {
+            // Show notification
+            if (Notification.permission === 'granted') {
+                new Notification('Break time over!', {
+                    body: 'Time to get back to work.',
+                    icon: '/static/planner/images/icon.png'
+                });
+            }
+
+            // Start work session
+            isWorkSession = true;
+            sessionType = 'work';
+            sessionTypeDisplay.textContent = sessionType;
+            startTimer(workDuration);
+        }
+    }
+
+    function pauseTimer() {
+        console.log('pauseTimer called');
+
+        if (!isRunning) {
+            console.log('Timer not running, nothing to pause');
+            return;
+        }
+
+        // Use the Web Worker if available
+        if (timerWorker) {
+            console.log('Pausing timer with worker');
+            timerWorker.postMessage({
+                command: 'pause'
+            });
+        } else {
+            // Fallback to animation frame if worker is not available
+            console.log('Pausing timer with animation frame (fallback)');
+
+            // Cancel the animation frame
+            if (animationFrameId) {
+                console.log('Canceling animation frame:', animationFrameId);
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        isRunning = false;
+        pausedTime = timeLeft;
+        console.log('Timer paused at', timeLeft, 'seconds');
+    }
+
+    function resetTimer() {
+        console.log('resetTimer called');
+
+        // Use the Web Worker if available
+        if (timerWorker) {
+            console.log('Resetting timer with worker');
+            timerWorker.postMessage({
+                command: 'reset'
+            });
+        } else {
+            // Fallback to animation frame if worker is not available
+            console.log('Resetting timer with animation frame (fallback)');
+
+            // Cancel the animation frame
+            if (animationFrameId) {
+                console.log('Canceling animation frame:', animationFrameId);
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        isRunning = false;
+        pausedTime = 0;
+        isWorkSession = true;
+        sessionType = 'work';
+        sessionTypeDisplay.textContent = sessionType;
+        timeLeft = workDuration;
+        updateDisplay();
+        document.title = 'Pomodoro Timer';
+        console.log('Timer reset to work session, duration:', workDuration, 'seconds');
+    }
+
+    // Handle tab visibility changes
+    document.addEventListener('visibilitychange', function() {
+        console.log('Visibility changed to:', document.visibilityState);
+
+        if (document.visibilityState === 'visible') {
+            // Tab is now visible, recalculate time if timer is running
+            if (isRunning) {
+                console.log('Timer is running, recalculating time');
+                const now = Date.now();
+                const elapsed = Math.floor((now - lastTimestamp) / 1000);
+                console.log('Time elapsed while tab was hidden:', elapsed, 'seconds');
+                lastTimestamp = now;
+
+                if (elapsed > 0) {
+                    timeLeft = Math.max(0, timeLeft - elapsed);
+                    console.log('Updated timeLeft:', timeLeft);
+                    updateDisplay();
+
+                    if (timeLeft <= 0) {
+                        console.log('Timer completed while tab was hidden');
+                        if (animationFrameId) {
+                            cancelAnimationFrame(animationFrameId);
+                            animationFrameId = null;
+                        }
+                        isRunning = false;
+                        handleSessionEnd();
+                    }
+                }
+            } else {
+                console.log('Timer not running, no recalculation needed');
+            }
+        } else {
+            // Tab is now hidden, update lastTimestamp
+            if (isRunning) {
+                console.log('Tab hidden while timer running, updating lastTimestamp');
+                lastTimestamp = Date.now();
+            }
+        }
+    });
+
+    // Request notification permission
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+
+    // Event listeners
+    console.log('Setting up event listeners');
+
+    startBtn.addEventListener('click', function() {
+        console.log('Start button clicked');
+        if (!isRunning) {
+            if (pausedTime > 0) {
+                // Resume from pause
+                console.log('Resuming from pause');
+                startTimer();
+            } else {
+                // Start new timer
+                console.log('Starting new timer');
+                const duration = isWorkSession ? workDuration :
+                    (sessionsCompleted % longBreakInterval === 0 ? longBreakDuration : shortBreakDuration);
+                console.log('Selected duration:', duration);
+                startTimer(duration);
+            }
+        } else {
+            console.log('Timer already running, ignoring start click');
+        }
+    });
+
+    pauseBtn.addEventListener('click', function() {
+        console.log('Pause button clicked');
+        pauseTimer();
+    });
+
+    resetBtn.addEventListener('click', function() {
+        console.log('Reset button clicked');
+        resetTimer();
+    });
+
+    // Initialize
+    console.log('Initializing timer display');
+    sessionTypeDisplay.textContent = sessionType;
+    updateDisplay();
+    console.log('Timer initialized and ready');
+});
+</script>
+{% endblock %}

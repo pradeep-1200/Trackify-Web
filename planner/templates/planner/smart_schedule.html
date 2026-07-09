@@ -1,0 +1,70 @@
+{% extends "planner/base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <h1 class="text-3xl font-bold mb-6">Smart Schedule</h1>
+    <p class="mb-6 text-gray-600">Your most productive time is: <span class="font-semibold capitalize">{{ productive_time }}</span></p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Morning ({{ remaining_time.morning }}min remaining)</h2>
+            <div class="space-y-3">
+                {% for task in schedule.morning %}
+                <div class="border rounded p-3 hover:bg-gray-50">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600">{{ task.estimated_duration }} min</p>
+                    <p class="text-xs text-gray-500 mt-1">Priority: {{ task.get_priority_display }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks scheduled</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Afternoon ({{ remaining_time.afternoon }}min remaining)</h2>
+            <div class="space-y-3">
+                {% for task in schedule.afternoon %}
+                <div class="border rounded p-3 hover:bg-gray-50">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600">{{ task.estimated_duration }} min</p>
+                    <p class="text-xs text-gray-500 mt-1">Priority: {{ task.get_priority_display }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks scheduled</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold mb-4">Evening ({{ remaining_time.evening }}min remaining)</h2>
+            <div class="space-y-3">
+                {% for task in schedule.evening %}
+                <div class="border rounded p-3 hover:bg-gray-50">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600">{{ task.estimated_duration }} min</p>
+                    <p class="text-xs text-gray-500 mt-1">Priority: {{ task.get_priority_display }}</p>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks scheduled</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    {% if remaining_tasks %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4 text-red-600">Unscheduled Tasks</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for task in remaining_tasks %}
+            <div class="border rounded p-3 hover:bg-red-50">
+                <h3 class="font-medium">{{ task.title }}</h3>
+                <p class="text-sm text-gray-600">{{ task.estimated_duration }} min</p>
+                <p class="text-xs text-gray-500 mt-1">Priority: {{ task.get_priority_display }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,389 @@
+{% extends "planner/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6">Eisenhower Matrix</h1>
+
+    <!-- Quadrant Counts Display -->
+    <div class="flex justify-center mb-6 space-x-4">
+        <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full">
+            Q1: {{ quadrant_counts.q1 }}
+        </span>
+        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
+            Q2: {{ quadrant_counts.q2 }}
+        </span>
+        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+            Q3: {{ quadrant_counts.q3 }}
+        </span>
+        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">
+            Q4: {{ quadrant_counts.q4 }}
+        </span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4" id="matrix-container">
+        <!-- Quadrant 1: Urgent & Important -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4" id="quadrant-1" data-quadrant="urgent_important">
+            <h2 class="text-xl font-semibold mb-3 text-red-800">Urgent & Important</h2>
+            <div class="space-y-2 quadrant-tasks">
+                {% for task in matrix.urgent_important %}
+                <div class="task-item bg-white p-3 rounded shadow-sm cursor-move hover:shadow-md transition-shadow"
+                     draggable="true" data-task-id="{{ task.id }}">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600 task-due-date">{{ task.due_date|date:"M j, Y"|default:"No deadline" }}</p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-xs px-2 py-1 rounded task-priority
+                            {% if task.priority == 'H' %}bg-red-100 text-red-800
+                            {% elif task.priority == 'M' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ task.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks in this quadrant</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quadrant 2: Not Urgent & Important -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4" id="quadrant-2" data-quadrant="not_urgent_important">
+            <h2 class="text-xl font-semibold mb-3 text-blue-800">Important, Not Urgent</h2>
+            <div class="space-y-2 quadrant-tasks">
+                {% for task in matrix.not_urgent_important %}
+                <div class="task-item bg-white p-3 rounded shadow-sm cursor-move hover:shadow-md transition-shadow"
+                     draggable="true" data-task-id="{{ task.id }}">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600 task-due-date">{{ task.due_date|date:"M j, Y"|default:"No deadline" }}</p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-xs px-2 py-1 rounded task-priority
+                            {% if task.priority == 'H' %}bg-red-100 text-red-800
+                            {% elif task.priority == 'M' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ task.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks in this quadrant</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quadrant 3: Urgent & Not Important -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4" id="quadrant-3" data-quadrant="urgent_not_important">
+            <h2 class="text-xl font-semibold mb-3 text-yellow-800">Urgent, Not Important</h2>
+            <div class="space-y-2 quadrant-tasks">
+                {% for task in matrix.urgent_not_important %}
+                <div class="task-item bg-white p-3 rounded shadow-sm cursor-move hover:shadow-md transition-shadow"
+                     draggable="true" data-task-id="{{ task.id }}">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600 task-due-date">{{ task.due_date|date:"M j, Y"|default:"No deadline" }}</p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-xs px-2 py-1 rounded task-priority
+                            {% if task.priority == 'H' %}bg-red-100 text-red-800
+                            {% elif task.priority == 'M' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ task.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks in this quadrant</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Quadrant 4: Not Urgent & Not Important -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4" id="quadrant-4" data-quadrant="not_urgent_not_important">
+            <h2 class="text-xl font-semibold mb-3 text-green-800">Not Urgent, Not Important</h2>
+            <div class="space-y-2 quadrant-tasks">
+                {% for task in matrix.not_urgent_not_important %}
+                <div class="task-item bg-white p-3 rounded shadow-sm cursor-move hover:shadow-md transition-shadow"
+                     draggable="true" data-task-id="{{ task.id }}">
+                    <h3 class="font-medium">{{ task.title }}</h3>
+                    <p class="text-sm text-gray-600 task-due-date">{{ task.due_date|date:"M j, Y"|default:"No deadline" }}</p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-xs px-2 py-1 rounded task-priority
+                            {% if task.priority == 'H' %}bg-red-100 text-red-800
+                            {% elif task.priority == 'M' %}bg-blue-100 text-blue-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ task.get_priority_display }}
+                        </span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-gray-500">No tasks in this quadrant</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg max-w-md w-full">
+        <h3 class="text-xl font-bold mb-4">Edit Task</h3>
+        <form id="edit-task-form">
+            {% csrf_token %}
+            <input type="hidden" id="edit-task-id">
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Title</label>
+                <input type="text" id="edit-task-title" class="w-full p-2 border rounded">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Due Date</label>
+                <input type="date" id="edit-task-due-date" class="w-full p-2 border rounded">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Priority</label>
+                <select id="edit-task-priority" class="w-full p-2 border rounded">
+                    <option value="H">High</option>
+                    <option value="M">Medium</option>
+                    <option value="L">Low</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button type="button" id="cancel-edit" class="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize drag and drop
+    const taskItems = document.querySelectorAll('.task-item');
+    const quadrants = document.querySelectorAll('[id^="quadrant-"]');
+
+    // Add event listeners to all task items
+    taskItems.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+        item.addEventListener('dblclick', handleEditClick);
+    });
+
+    // Add event listeners to all quadrants
+    quadrants.forEach(quadrant => {
+        quadrant.addEventListener('dragover', handleDragOver);
+        quadrant.addEventListener('drop', handleDrop);
+        quadrant.addEventListener('dragenter', handleDragEnter);
+        quadrant.addEventListener('dragleave', handleDragLeave);
+    });
+
+    // Modal functionality
+    const editModal = document.getElementById('edit-modal');
+    const cancelEdit = document.getElementById('cancel-edit');
+
+    if (cancelEdit) {
+        cancelEdit.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+        });
+    }
+
+    if (document.getElementById('edit-task-form')) {
+        document.getElementById('edit-task-form').addEventListener('submit', handleTaskUpdate);
+    }
+
+    function handleDragStart(e) {
+        e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+        e.target.classList.add('opacity-50');
+    }
+
+    function handleDragEnd(e) {
+        e.target.classList.remove('opacity-50');
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragEnter(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add('bg-blue-50');
+    }
+
+    function handleDragLeave(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('bg-blue-50');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('bg-blue-50');
+
+        const taskId = e.dataTransfer.getData('text/plain');
+        const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+        const newQuadrant = e.currentTarget.dataset.quadrant;
+
+        if (!taskElement || !newQuadrant) return;
+
+        // Update UI immediately
+        const tasksContainer = e.currentTarget.querySelector('.quadrant-tasks');
+        tasksContainer.appendChild(taskElement);
+        taskElement.classList.remove('opacity-50');
+
+        // Update the empty state message if needed
+        updateEmptyStateMessages();
+
+        // Send update to server
+        updateTaskQuadrant(taskId, newQuadrant);
+    }
+
+    function handleEditClick(e) {
+        const taskId = this.dataset.taskId;
+        const taskTitle = this.querySelector('h3').textContent;
+        const dueDateElement = this.querySelector('.task-due-date');
+        const priorityElement = this.querySelector('.task-priority');
+
+        let dueDate = '';
+        if (dueDateElement) {
+            dueDate = dueDateElement.textContent.trim();
+        }
+
+        let priority = '';
+        if (priorityElement) {
+            priority = priorityElement.textContent.trim();
+        }
+
+        // Populate modal
+        document.getElementById('edit-task-id').value = taskId;
+        document.getElementById('edit-task-title').value = taskTitle;
+
+        // Parse and format due date
+        if (dueDate && dueDate !== 'No deadline') {
+            try {
+                const dateObj = new Date(dueDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const formattedDate = dateObj.toISOString().split('T')[0];
+                    document.getElementById('edit-task-due-date').value = formattedDate;
+                }
+            } catch (e) {
+                console.error('Error parsing date:', e);
+                document.getElementById('edit-task-due-date').value = '';
+            }
+        } else {
+            document.getElementById('edit-task-due-date').value = '';
+        }
+
+        // Set priority
+        const prioritySelect = document.getElementById('edit-task-priority');
+        if (priority.includes('High')) {
+            prioritySelect.value = 'H';
+        } else if (priority.includes('Medium')) {
+            prioritySelect.value = 'M';
+        } else {
+            prioritySelect.value = 'L';
+        }
+
+        // Show modal
+        editModal.classList.remove('hidden');
+    }
+
+    function handleTaskUpdate(e) {
+        e.preventDefault();
+        const taskId = document.getElementById('edit-task-id').value;
+        const formData = new FormData(e.target);
+
+        fetch(`/tasks/${taskId}/edit/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                response.json().then(data => {
+                    alert(data.error || 'Error updating task');
+                }).catch(() => {
+                    alert('Error updating task');
+                });
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('Error updating task');
+        });
+    }
+
+
+    function updateTaskQuadrant(taskId, newQuadrant) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // First update the Django database
+        fetch('/planner/tasks/update-quadrant/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                task_id: taskId,
+                quadrant: newQuadrant
+            })
+        }).then(response => {
+            if (response.status === 401) {
+                alert('Please log in to update tasks.');
+                window.location.href = '/login/?next=' + window.location.pathname;
+                throw new Error('User not authenticated');
+            }
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Failed to update quadrant');
+                });
+            }
+            return response.json();
+        }).then(data => {
+            if (data.status === 'success') {
+                updateQuadrantCounts(data.quadrant_counts);
+                // MongoDB sync is now handled directly in the Django view
+            } else {
+                console.error('Error:', data.error);
+                alert(data.error || 'Error updating task quadrant');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            // You can remove or comment this alert if it annoys users
+            // alert(error.message || 'Error updating task quadrant');
+        });
+}
+
+
+    function updateQuadrantCounts(counts) {
+        if (!counts) return;
+
+        const countElements = document.querySelectorAll('.flex.justify-center.mb-6.space-x-4 span');
+
+        if (countElements.length >= 4) {
+            countElements[0].textContent = `Q1: ${counts.q1 || 0}`;
+            countElements[1].textContent = `Q2: ${counts.q2 || 0}`;
+            countElements[2].textContent = `Q3: ${counts.q3 || 0}`;
+            countElements[3].textContent = `Q4: ${counts.q4 || 0}`;
+        }
+    }
+
+    function updateEmptyStateMessages() {
+        // Check each quadrant and add/remove empty state messages as needed
+        quadrants.forEach(quadrant => {
+            const tasksContainer = quadrant.querySelector('.quadrant-tasks');
+            const taskItems = tasksContainer.querySelectorAll('.task-item');
+            let emptyMessage = tasksContainer.querySelector('p.text-gray-500');
+
+            if (taskItems.length === 0 && !emptyMessage) {
+                // Add empty message if there are no tasks
+                emptyMessage = document.createElement('p');
+                emptyMessage.className = 'text-gray-500';
+                emptyMessage.textContent = 'No tasks in this quadrant';
+                tasksContainer.appendChild(emptyMessage);
+            } else if (taskItems.length > 0 && emptyMessage) {
+                // Remove empty message if there are tasks
+                emptyMessage.remove();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
